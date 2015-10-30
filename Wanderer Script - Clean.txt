@@ -1,0 +1,743 @@
+#Note: Currently has to be run in browser using the website CodeSkulptor due to a unique module
+#CodeSkulptor can be found at:
+#www.codeskulptor.org/
+
+from random import *
+import simplegui
+
+DISPLAY_X=300
+DISPLAY_Y=400
+
+locNames=[
+    "Pawn Shop", #upgrade weapons
+    "Office Building", #encounters
+    "Warehouse", #encounters
+    "Department Store", #upgrade all?
+    "Outfitter", #upgrade camping
+    "Antique Store", #upgrade weapons
+    "MiniMart", #supplies
+    "Clothing Store", #upgrade clothing
+    "Coffee Shop", #quest
+    "Library", #encounters or campaign advancement
+    "Subway Station", #encounters
+    "Hotel", #quest
+    "Restaurant", #food meter
+    "Terrarium", #encounters
+    "Museum", #encounters
+    "Art Gallery", #encounters
+    "Soda Store", #happy meter
+    "Apartment", #encounters
+    "Hardware Store", #upgrade weapons
+    "Therapist", #hugs
+    "Bar", #happy meter
+    "Junkyard", #upgrade?
+    "Landfill" #upgrade?
+    ]
+
+encNames=[
+    "Office Building", #encounters
+    "Warehouse", #encounters
+    "Subway Station", #encounters
+    "Terrarium", #encounters
+    "Museum", #encounters
+    "Art Gallery", #encounters
+    "Apartment", #encounters
+    "Landfill" #upgrade?
+    ]
+
+shopNames=[
+    "Pawn Shop", #upgrade weapons
+    "Department Store", #upgrade all?
+    "Outfitter", #upgrade camping
+    "Antique Store", #upgrade weapons
+    "Hardware Store", #upgrade weapons
+    "Junkyard", #upgrade?
+    ]
+
+SodaNames=[
+    "Restaurant", #food meter
+    "Soda Store", #happy meter
+    "Bar", #happy meter
+    ]
+
+hugNames=[
+    "Subway Station", #encounters
+    "Therapist", #hugs
+    ]
+
+eatNames=[
+    "MiniMart", #supplies
+    "Coffee Shop", #quest
+    "Restaurant", #food meter
+    "Bar", #happy meter
+    ]
+
+sleepNames=[
+    "Library", #encounters or campaign advancement
+    "Subway Station", #encounters
+    "Landfill",
+    "Therapist", #hugs
+    ]
+
+class TimeTrack:
+    
+    def __init__(self):
+        self.time=6
+        self.day=1
+        
+    def advance1hr(self):
+        self.time+=1
+        if self.time>23:
+            self.time=0
+            self.day+=1
+            
+    def getTime(self):
+        ap=""
+        dt=self.time
+        if self.time>12:
+            dt=dt-12
+            ap="pm"
+        else:
+            if self.time==0:
+                dt=12
+            ap="am"
+        return "%d%s"%(dt,ap)
+    
+    def getDay(self):
+        return self.day
+
+##################################################
+    
+class SDice:
+    
+    def __init__(self, faces, number, constant):
+        self.faces=faces
+        self.number=number
+        self.constant=constant
+        
+    def roll(self):
+        value=0
+        for v in range(0,self.number):
+            value=value+randint(1,self.faces)
+        return value+self.constant
+    
+    def generateDice(power):
+        constant=randint(0,int(power/2))
+        power=power-constant
+        constant=int(constant/3)
+        if power<2:
+            power=2
+        number=randint(1,int(power/2))
+        faces=int(power/number)
+        return SDice(faces,number,constant)
+    
+    def printRange(self):
+        minpow=self.number+self.constant
+        maxpow=self.number*self.faces+self.constant
+        return "%d-%d"%(minpow,maxpow)
+    
+    def printDice(self):
+        return "".join((str(self.number),"d",str(self.faces),"+",
+                        str(self.constant)," (",self.printRange(),")"))
+
+##################################################
+
+DElemNames=["Light","Dark","Fire","Ice","Shock",
+        "Water","Earth","Wind","Life","Death",
+        "Time","Chaos","Void"]
+DemNames=["Dragon","Souleater","Unformed","Ouroboros","Corruptor",
+         "Monolith","Executioner","Nephilim","Flagellant","Voidrender",
+         "Bridgewyrm","Samsara","Boiling Star","Chronogear","Dreamthief",
+         "Fadespiral","Orbgazer","Gibberer","Sarcophage","Duskmaere",
+         "Horror","Fearcreeper"]
+
+MTYPES=["Eternal ",
+        "Implacable ",
+        "Thrashing ",
+        "Frozen ",
+        "Molten "]
+
+class DMonster:
+    
+    def __init__(self,name,power,mtype):
+        self.mtype=mtype
+        self.name=MTYPES[mtype]+name
+        self.power=power
+        self.resetCurrBody()
+        self.dice=[]
+        if self.mtype==0:
+            self.dice=[SDice.generateDice(self.power),
+                       SDice.generateDice(self.power),
+                       SDice.generateDice(self.power)]
+        elif self.mtype==1:
+            self.dice=[SDice.generateDice(self.power),
+                       SDice.generateDice(self.power)]
+            for d in self.dice:
+                d.constant+=randint(int(self.power/2),self.power)
+        elif self.mtype==2:
+            self.dice=[SDice.generateDice(self.power),
+                       SDice.generateDice(self.power),
+                       SDice.generateDice(self.power),
+                       SDice.generateDice(self.power)]
+        elif self.mtype==3:
+            self.dice=[SDice.generateDice(self.power*3)]
+        elif self.mtype==4:
+            self.dice=[SDice.generateDice(self.power),
+                       SDice.generateDice(int(self.power/2)),
+                       SDice.generateDice(int(self.power/2)),
+                       SDice.generateDice(int(self.power/2)),
+                       SDice.generateDice(int(self.power/2))]
+        else:
+             self.dice=[SDice.generateDice(self.power)]
+    
+    def generateMonster(power):
+        name="".join((choice(DElemNames)," ",choice(DemNames)))
+        mtype=randint(0,len(MTYPES)-1)
+        return DMonster(name,power,mtype)
+    
+    def checkDead(self):
+        return self.body<=0
+    
+    def changeBody(self, change):
+        self.body+=change
+    
+    def resetCurrBody(self):
+        self.body=self.power*self.power
+        
+    def rollAll(self):
+        msum=0
+        for d in self.dice:
+            msum+=d.roll()
+        print ("The shadows yawn in a predatory grin, releasing: %d"%(msum))
+        return msum
+
+    def printMonster(self):
+        return "%s(%d)"%(self.name,self.power)
+    
+##################################################
+
+class Cityblock:
+    
+    def __init__(self, xdim, ydim, density=0.80):
+        self.ylist=[]
+        for i in range (0,ydim):
+            if i % 2 == 0:
+                xlist=[0 for x in range(0,xdim)]
+                self.ylist.append(xlist)
+            else:
+                xlist=[]
+                for x in range(0,xdim):
+                    if random()<density:
+                        xlist.append(1)
+                    else:
+                        xlist.append(0)
+                self.ylist.append(xlist)
+        #for i in range(2,ydim,2):
+            #for j in range(0,xdim):
+                #if self.ylist[i-2][j]<1 and random()<0.25:
+                    #self.ylist[i][j]=1
+        self.findCellLocations()
+        self.findEmptyLocations()
+
+    #building locations
+    def findCellLocations(self):
+        clist=[]
+        for y in range(len(self.ylist)):
+            for x in range(len(self.ylist[y])):
+                if self.ylist[y][x] > 0:
+                    clist.append((x,y))
+        self.cell_locations=clist
+        self.loc_list=dict((ll,choice(locNames)) for ll in self.cell_locations)
+        return self.loc_list
+
+    def findEmptyLocations(self):
+        clist=[]
+        for y in range(len(self.ylist)):
+            for x in range(len(self.ylist[y])):
+                if self.ylist[y][x] == 0:
+                    clist.append((x,y))
+        self.emp_list=clist
+        return self.emp_list
+        
+    def getMonLocations(self):
+        monloc=[]
+        for c in self.cell_locations:
+            if self.loc_list[c] in encNames:
+                monloc.append(c)
+        return monloc
+    
+    #I can't draw this because of the \n keys
+    def getOutmap (self):
+        cbstr=""
+        for y in self.ylist:
+            cbstr="".join((cbstr,str(y),"\n"))
+        return cbstr
+
+##################################################
+#global methods and variables follow
+
+def keyup(key):
+    global pcoord
+    if key == simplegui.KEY_MAP['down']:
+        pcoord[1]+=1
+    elif key == simplegui.KEY_MAP['up']:
+        pcoord[1]-=1
+    elif key == simplegui.KEY_MAP['right']:
+        pcoord[0]+=1
+    elif key == simplegui.KEY_MAP['left']:
+        pcoord[0]-=1
+    if pcoord[0]<0:
+        pcoord[0]=0
+    elif pcoord[0]>len(c.ylist[0])-1:
+        pcoord[0]=len(c.ylist[0])-1
+    if pcoord[1]<0:
+        pcoord[1]=0
+    elif pcoord[1]>len(c.ylist)-1:
+        pcoord[1]=len(c.ylist)-1
+    processMove()
+
+def draw(canvas):
+    hw=20 #the standard offset/width and height of gfx
+    roffset=0 #row offset: how many pixels down to shift the next line
+    coffset=0 #col offset: how many pixels right to shift the next line
+    for y in c.ylist:
+        for cy in y:
+            if cy == 1:
+                drawShape(canvas,roffset,coffset,hw)
+            coffset+=1
+        #canvas.draw_text(str(y),[hw,hw+roffset],hw,"White")
+        coffset=0
+        roffset+=1
+    canvas.draw_text("@",[hw+pcoord[0]*(hw+1),hw+pcoord[1]*(hw+4)-4],hw,"Red")
+    #draw bars for the various stats
+    canvas.draw_text("SUGAR:%s"%(numToString(sugar)),[10,DISPLAY_Y-hw-60],hw*3/4,"Blue","monospace")
+    canvas.draw_text("HAPPY:%s"%(numToString(happi)),[10,DISPLAY_Y-hw-45],hw*3/4,"Blue","monospace")
+    canvas.draw_text("SATIA:%s"%(numToString(satia)),[10,DISPLAY_Y-hw-30],hw*3/4,"Blue","monospace")
+    canvas.draw_text("WAKEF:%s"%(numToString(wakef)),[10,DISPLAY_Y-hw-15],hw*3/4,"Blue","monospace")
+    #try to print the monster in the room, might error if no monster
+    try:
+        tmon=monList[(pcoord[0],pcoord[1])]
+        if tmon is not None:
+            canvas.draw_text(tmon.printMonster(),[10,DISPLAY_Y-hw+3],hw,"Yellow")
+    except:
+        pass
+
+def drawShape(canvas,roffset,coffset,hw):
+    canvas.draw_polygon([[hw+coffset*(hw+1),roffset*(hw+4)],#tleft
+                        [2*hw+coffset*(hw+1),roffset*(hw+4)],#tright
+                        [2*hw+coffset*(hw+1),hw+roffset*(hw+4)],#bright
+                        [hw+coffset*(hw+1),hw+roffset*(hw+4)]],#bleft
+                        2,"rgb(%d,%d,%d)"%(sanity,sanity,sanity))
+    
+def processMove():
+    global GAME_WON
+    if sanity>0:
+        processDay()
+    elif mybody>1000000:
+        if not GAME_WON:
+            GAME_WON=True
+            try:
+                choice=input("You feel rich! You could chill out for days, pass out and overhug for an eternity...but in the end, you know you would wake up sober and sore all over, your head pounding with agony. The demons will always come back.")
+            except:
+                pass
+        processDay()
+    else:
+        try:
+            choice=input("The demons are everywhere, their talons drag you down, down...")
+        except:
+            pass
+        try:
+            choice=input("But this is your hell. You return, trapped in your wretchedness, until the cycle is broken...")
+        except:
+            pass
+        initGame()
+
+def initGame():
+    global localdice
+    global mydice
+    global mybody
+    global sugar
+    global happi
+    global satia
+    global wakef
+    global sanity
+    global soulbet
+    global c
+    global t
+    global pcoord
+    global diceInv
+    global monList
+    global daily_pow
+    global daily_var
+    
+    localdice=None
+    mydice=[SDice.generateDice(13),SDice.generateDice(13),SDice.generateDice(13)]
+    mybody=START_BODY+0
+    sugar=100
+    happi=100
+    satia=100
+    wakef=100
+    sanity=256
+
+    soulbet=10
+
+    t=TimeTrack()
+    c=Cityblock(CITY_DIM,CITY_DIM)
+
+    daily_pow=START_POW+0
+    daily_var=10
+    
+    diceInv=generateDiceInv()
+    monList=populateMonsters()
+
+    pcoord=[0,0]
+    
+def processDay():
+    global t
+    global diceInv
+    global monList
+    
+    d=t.getDay()
+    t.advance1hr()
+    if t.getDay()>d:
+        print("Day %d: The Time is %s."%(t.getDay(),t.getTime()))
+        adjustDailyPow()
+        diceInv=generateDiceInv()
+        monList=populateMonsters()
+    else:
+        print ("The Time is %s."%(t.getTime()))    
+    
+    updateLocalDice()
+    updateDiceLabels()
+    updateNeeds()
+    
+    #try to print the name of the building the player is in
+    try:
+        print (c.loc_list[(pcoord[0],pcoord[1])])
+    except:
+        pass    
+    
+def updateDiceLabels():
+    global dlabels
+    global locDiceLabel
+    for d in range(0,len(dlabels)):
+        dlabels[d].set_text("Dice:%s"%(mydice[d].printDice()))
+    if localdice is not None:
+        locDiceLabel.set_text("Dice:%s"%(localdice.printDice()))
+    else:
+        locDiceLabel.set_text("Ground: None")
+
+def updateLocalDice():
+    global localdice
+    try:
+        shopname=c.loc_list[(pcoord[0],pcoord[1])]
+        localdice=diceInv[shopname]
+    except:
+        localdice=None
+            
+def adjustDailyPow():
+    global daily_pow
+    daily_pow+=int(randint(0,daily_var)-daily_var/2)
+    if daily_pow<0:
+        daily_pow=START_POW+0
+
+def updateNeeds():
+    updateSanity()
+    changesugar(-randint(2,8))
+    changehappi(-randint(4,7))
+    changeSatia(-randint(1,15))
+    if random()<0.2:
+        changeWakef(-randint(1,3))
+        
+def updateBody():
+    changeBody(int(-mybody*1/25))
+
+def updateSanity():
+    if sugar*happi*satia*wakef>0:
+        changeSanity(256)
+    else:
+        if sugar==0:
+            changeSanity(-randint(0,5))
+        if happi==0:
+            changeSanity(-randint(0,13))
+        if satia==0:
+            changeSanity(-randint(1,5))
+        if wakef==0:
+            changeSanity(-randint(1,5))
+    
+#A dictionary of the dice available at equipment outlets
+def generateDiceInv():
+    return dict((ll,SDice.generateDice(daily_pow+randint(0,daily_pow))) for ll in shopNames)
+
+def populateMonsters():
+    return dict((ll,DMonster.generateMonster(daily_pow+randint(0,daily_pow))) for ll in c.getMonLocations())
+
+def generateCity():
+    global c
+    c=Cityblock(CITY_DIM,CITY_DIM)
+
+##################################################
+#Actionlisteners
+
+def diceOne():
+    global mydice
+    global localdice
+    global diceInv
+    if localdice is not None:
+        tdice=mydice[0]
+        mydice[0]=localdice
+        localdice=tdice
+        shopname=c.loc_list[(pcoord[0],pcoord[1])]
+        diceInv[shopname]=localdice
+    updateDiceLabels()
+
+def diceTwo():
+    global mydice
+    global localdice
+    global diceInv
+    if localdice is not None:
+        tdice=mydice[1]
+        mydice[1]=localdice
+        localdice=tdice
+        shopname=c.loc_list[(pcoord[0],pcoord[1])]
+        diceInv[shopname]=localdice
+    updateDiceLabels()
+
+def diceThree():
+    global diceInv
+    global mydice
+    global localdice
+    if localdice is not None:
+        tdice=mydice[2]
+        mydice[2]=localdice
+        localdice=tdice
+        shopname=c.loc_list[(pcoord[0],pcoord[1])]
+        diceInv[shopname]=localdice
+    updateDiceLabels()
+
+def inputSoulBet():
+    global soulbet
+    global soulbetbutton
+    try:
+        soulbet=int(input("How much of your body and soul would you like to bet with each toss of the dice?"))
+        soulbet=max(int(mybody/10),soulbet)
+        soulbetbutton.set_text("Wager:%d"%(soulbet))
+    except:
+        soulbet=max(1,int(mybody/10))
+        soulbetbutton.set_text("Wager:%d"%(soulbet))
+
+def gamble():
+    if mybody-soulbet>0 and soulbet>0: #can you pay the cost?
+        try:
+            global monList
+            tmon=monList[(pcoord[0],pcoord[1])]
+            if tmon is not None:
+                psum=rollAll()
+                tsum=tmon.rollAll()
+                if psum>tsum:
+                    print ("%s shrieks as your willpower tears at its essence!"%(tmon.name))
+                    tmon.changeBody(-soulbet)
+                    changeBody(soulbet)
+                    if tmon.checkDead():
+                        updateVictory(tmon)
+                    elif tmon.body<tmon.power*tmon.power/2:
+                        print ("It staggers, weakened by terrible wounds that drip black ink.")
+                else:
+                    print("%s tears a shred of atma from your quivering, bruised form,\ngloating wickedly as tears fall from your face."%(tmon.name))
+                    changeBody(-soulbet)
+        except:
+            print("gambling error")
+
+def beg():
+    if (pcoord[0],pcoord[1]) in c.emp_list:
+        print ("You sacrifice your dignity and beg for a few scraps.")
+        changeBody(randint(0,6))
+        if random()<0.2:
+            print ("Some disdainful soul gives you a half-eaten sandwich.")
+            changeSatia(randint(10,20))
+        processMove()
+
+#the following methods should also increase sanity
+
+def butterUp():
+    #up sugar if over bar
+    if mybody>0:
+        try:
+            if c.loc_list[(pcoord[0],pcoord[1])] in SodaNames:
+                changesugar(randint(30,60))
+                changeBody(-mybody*1/10)
+                updateSanity()
+                print ("You gulp down a tall, stiff one.")
+            else:
+                print ("You thirst for a good watering hole.") 
+        except:
+            print ("You thirst for a good watering hole.")    
+    
+def embraceUp():
+    #up happi if over Therapist
+    if mybody>0:
+        try:
+            if c.loc_list[(pcoord[0],pcoord[1])] in hugNames:
+                changehappi(150)
+                changeBody(-mybody*1/8)
+                updateSanity()
+                print ("Nothing to see here but refreshing hugs and Kool-aid!")
+            else:
+                print ("No hug dealers around here.") 
+        except:
+            print ("No hug dealers around here.") 
+    
+def eatUp():
+    #up satia if over food
+    if mybody>0:
+        try:
+            if c.loc_list[(pcoord[0],pcoord[1])] in eatNames:
+                changeSatia(randint(5,40))
+                changeBody(-mybody*1/25)
+                updateSanity()
+                print ("You dive into the garbage, scavenging for scraps.\n You are what you eat.")
+            else:
+                print ("Food ain't free. You could always beg for it.") 
+        except:
+            print ("Food ain't free. You could always beg for it.")  
+    
+def sleepUp():
+    #up awakeness if over inn
+    try:
+        if (pcoord[0],pcoord[1]) in c.findEmptyLocations():
+            changeWakef(randint(30,80))
+            changeBody(-mybody*1/5)
+            print ("You pass out on the streets.")
+            choice=str(input("Maybe life was a hug-fueled pipe dream, and you'll wake up from it someday...[Enter YES if you agree]"))
+            if choice=="YES":
+                generateCity()
+            for d in range(0,randint(2,5)):
+                processMove()
+            if choice=="YES":
+                print ("Things seem different...yet just as terrible.")
+        elif c.loc_list[(pcoord[0],pcoord[1])] == "Hotel":
+            print ("You wish you deserved something as nice as this.")
+        elif c.loc_list[(pcoord[0],pcoord[1])] in sleepNames:
+            changeWakef(randint(30,300))
+            changeBody(-mybody*1/25)
+            print ("A cardboard box: the lap of luxury.")
+            choice=str(input("Maybe life was a hug-fueled pipe dream, and you'll wake up from it someday...[Enter YES if you agree]"))
+            if choice=="YES":
+                generateCity()
+            for d in range(0,randint(5,7)):
+                processMove()
+            if choice=="YES":
+                print ("Things seem different...yet just as terrible.")
+        else:
+            print ("You try to doze, but the noisy world clamors for attention.") 
+    except:
+        print ("You have nightmares that the world is going wrong.")   
+            
+##################################################
+#Listener helper methods
+
+def updateVictory(tmon):
+    global localdice
+    global daily_pow
+    print ("You are victorious!\n%s is dispelled back to the nether!"%(tmon.name))
+    daily_pow+=tmon.power/10
+    localdice=SDice.generateDice(tmon.power+randint(0,tmon.power))
+    monList[(pcoord[0],pcoord[1])]=None
+    updateDiceLabels()
+    
+def changeBody(change):
+    global mybody
+    global bodyLabel
+    mybody+=change
+    bodyLabel.set_text("Body:%d"%mybody)
+               
+def changesugar(change):
+    global sugar
+    sugar=min(sugar+change,150)
+    sugar=max(sugar,0)
+    
+def changehappi(change):
+    global happi
+    happi=min(happi+change,150)
+    happi=max(happi,0)
+    
+def changeSatia(change):
+    global satia
+    satia=min(satia+change,150)
+    satia=max(satia,0)
+    
+def changeWakef(change):
+    global wakef
+    wakef=min(wakef+change,150)
+    wakef=max(wakef,0)
+
+def changeSanity(change):
+    global sanity
+    sanity=min(sanity+change,256)
+    sanity=max(sanity,0)
+    
+def rollAll():
+    msum=0
+    for d in mydice:
+        msum+=d.roll()
+    print ("Your dreams part to reveal: %d"%(msum))
+    return msum
+
+def numToString(num):
+    return "[]"*int(num/10)
+               
+##################################################
+
+START_POW=6
+START_BODY=42
+daily_pow=START_POW+0
+daily_var=10
+CITY_DIM=10
+GAME_WON=False
+
+localdice=None
+mydice=[SDice.generateDice(13),SDice.generateDice(13),SDice.generateDice(13)]
+mybody=START_BODY+0
+sugar=100
+happi=100
+satia=100
+wakef=100
+sanity=256
+
+soulbet=10
+
+t=TimeTrack()
+c=Cityblock(CITY_DIM,CITY_DIM)
+#print (c.getOutmap())
+
+diceInv=generateDiceInv()
+monList=populateMonsters()
+
+pcoord=[0,0] #x and y
+
+frame=simplegui.create_frame("Map",DISPLAY_X,DISPLAY_Y)
+frame.set_keyup_handler(keyup)
+frame.set_draw_handler(draw)
+
+dlabels=[]
+for d in range(0,len(mydice)):
+    ds="Dice:%s"%(mydice[d].printDice())
+    if d==0:
+        dlabels.append(frame.add_button(ds,diceOne))
+    elif d==1:
+        dlabels.append(frame.add_button(ds,diceTwo))
+    else:
+        dlabels.append(frame.add_button(ds,diceThree))
+
+locDiceLabel=frame.add_label("Ground: None")
+bodyLabel=frame.add_label("Body:%d"%mybody)
+soulbetbutton=frame.add_button("Wager:%d"%(soulbet),inputSoulBet)
+gamblebutton=frame.add_button("GAMBLE",gamble)
+begbutton=frame.add_button("Beg",beg)
+
+butterbutton=frame.add_button("Drink Up",butterUp)
+shootbutton=frame.add_button("Hug Up",embraceUp)
+eatbutton=frame.add_button("Eat Up",eatUp)
+sleepbutton=frame.add_button("Conk Out",sleepUp)
+
+frame.start()
